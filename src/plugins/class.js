@@ -100,23 +100,27 @@ export default class ClassPlugin extends Plugin {
 
   // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
   // searching
-  sourceModulesIn(registryObj) {
-show("sourceModulesIn: TODO")
-    var moduleNames = [],
-        partsBinRequiredModulesProperty = 'requiredModules',
-        sourceModuleProperty = this.sourceModuleNameProperty;
+  static sourceModulesIn(registryObj) {
 
-    Serializer.allRegisteredObjectsDo(registryObj, function(id, value) {
-      if (value && value[sourceModuleProperty])
-        moduleNames.push(value[sourceModuleProperty]);
+    var modules = [],
+        partsBinRequiredModulesProperty = 'requiredModules',
+        classProp = this.classMetaForSerializationProp
+    Serializer.allRegisteredObjectsDo(registryObj, (id, value) => {
+
+      if (value && value[classProp])
+        modules.push(value[classProp]);
       if (value && value[partsBinRequiredModulesProperty])
-        moduleNames.pushAll(value[partsBinRequiredModulesProperty]);
+        modules.pushAll(value[partsBinRequiredModulesProperty]);
     });
 
-    return arr.uniq(
-      moduleNames.filter(ea =>
-        !ea.startsWith('Global.anonymous_')
-     && !ea.include('undefined')));;
+    return arr.uniqBy(modules, (a, b) => {
+      var modA = a.module, modB = b.module;
+      if ((!modA && !modB) || (modA && !modB) || (!modA && modB))
+        return a.className === b.className;
+      return a.className === b.className
+          && modA.package.name == modB.package.name
+          && modA.package.pathInPackage == modB.package.pathInPackage;
+    });
   }
 
 }
