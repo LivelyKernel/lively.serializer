@@ -17,7 +17,7 @@ describe("lively.serializer", () => {
       expect(23).to.equal(sut.getRegisteredObjectFromId(ref.id).foo);
       sut.cleanup(sut.state.registry);
       expect().assert(!sut.getIdFromObject(obj), 'id property not removed from original objects');
-    });    
+    });
   });
 
   it("test02RegisterObjectsWithReferences", function() {
@@ -133,5 +133,80 @@ describe("lively.serializer", () => {
     expect(23).to.equal(serialized.registry[0].prop2);
     expect().assert(!serialized.registry[0].hasOwnProperty("prop1"), 'prop1 should be ignored and excluded');
   })
+
+});
+
+describe("compaction", () => {
+
+  it("testDirectCompaction", function() {
+    var objs = [{name: "1"}, {name: "2"}, {name: "3"}, {name: "4"}, {name: "5"}];
+    objs[0].ref = objs[1];
+    objs[1].ref1 = objs[2];
+    objs[1].ref2 = objs[3];
+    objs[2].refs = [objs[3], [objs[4]], objs[0]];
+
+    var serializer = new Serializer(),
+        snapshot = serializer.serializeToJso(objs[0]),
+        compacted;
+
+    // no changes
+    compacted = serializer.compactRegistry(lively.lang.obj.deepCopy(snapshot));
+    expect(snapshot).deep.equals(compacted);
+    expect(lively.lang.obj.inspect(objs[0], {maxDepth: 5})).equals(lively.lang.obj.inspect(serializer.deserializeJso(compacted), {maxDepth: 5}));
+
+    // removals
+    compacted = serializer.compactRegistry(lively.lang.obj.deepCopy(snapshot), [2]);
+    expect(["0", "1", "3", "isSimplifiedRegistry"]).deep.equals(Object.keys(compacted.registry));
+    expect({name: "1", ref: {name: "2", ref1: null, ref2: {name: "4"}}}).deep.equals(serializer.deserializeJso(compacted));
+
+    compacted = serializer.compactRegistry(lively.lang.obj.deepCopy(snapshot), [3]);
+    expect(["0", "1", "2", "4", "isSimplifiedRegistry"]).deep.equals(Object.keys(compacted.registry));
+    expect({name: "1",ref: {name: "2",ref1: null,ref2: null}}).deep.equals(serializer.deserializeJso(compacted));
+  });
+
+  xit("testRemoveAllReferences", function() {
+    var objs = [{}, {}, {}, {}, {}, {}];
+    objs[0].ref = objs[1];
+    objs[1].ref = objs[2];
+    objs[2].ref = objs[3];
+    objs[3].ref = objs[4];
+    objs[4].ref = objs[5];
+    objs[5].ref = objs[3];
+
+    // There is a loop 3 -> 4 -> 5
+    //                 ^---------|
+    var serializer = new Serializer(),
+        snapshot = serializer.serializeToJso(objs[0]),
+        compacted = serializer.compactRegistry(lively.lang.obj.deepCopy(snapshot), ["1"]);
+    expect(["0", "isSimplifiedRegistry"]).deep.equals(Object.keys(compacted.registry));
+
+    objs[0].ref2 = objs[5];
+    var serializer = new Serializer(),
+        snapshot = serializer.serializeToJso(objs[0]);
+        compacted = serializer.compactRegistry(lively.lang.obj.deepCopy(snapshot), ["1"]);
+    expect(["0", "3", "4", "5", "isSimplifiedRegistry"]).deep.equals(Object.keys(compacted.registry));
+  });
+
+  xit("testCompactionHappensWithNormalSerialization", function() {
+    var objs = [{}, {}, {}, {}, {}, {}];
+    objs[0].ref = objs[1];
+    objs[1].ref = objs[2];
+    objs[2].ref = objs[3];
+    objs[3].ref = objs[4];
+    objs[4].ref = objs[5];
+    objs[5].ref = objs[3];
+
+    // There is a loop 3 -> 4 -> 5
+    //                 ^---------|
+    var serializer = new Serializer();
+    var filter = new GenericFilter();
+    filter.addFilter(function(obj, propName, value) { return value === objs[1]; })
+    serializer.addPlugin(filter);
+    var snapshot = serializer.serializeToJso(objs[0]);
+    expect(["0", "isSimplifiedRegistry"]).deep.equals(Object.keys(snapshot.registry));
+
+    this.assert(!objs[1][lively.persistence.ObjectGraphLinearizer.prototype.idProperty],
+      "removed object not cleaned up!");
+  });
 
 });
