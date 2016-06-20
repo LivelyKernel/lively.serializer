@@ -1,3 +1,3 @@
 # lively.serializer
 
-No description for package lively.serializer yet.
+(De)serializing object graphs.

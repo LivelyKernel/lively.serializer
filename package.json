@@ -7,10 +7,16 @@
     }
   },
   "lively": {
-    "main": "index.js"
+    "main": "index.js",
+    "packageMap": {
+      "lively.lang": "./node_modules/lively.lang"
+    }
   },
   "scripts": {
     "test": "mocha-es6 tests/*-test.js"
+  },
+  "dependencies": {
+    "lively.lang": "^0.6.0"
   },
   "devDependencies": {
     "mocha-es6": "^0.3.5"
